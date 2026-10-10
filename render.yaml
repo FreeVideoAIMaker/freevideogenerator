@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: freevideoaimaker
+    env: node
+    plan: free
+    region: frankfurt # or oregon / ohio
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: WORKER_SECRET_KEY
+        value: NeuralQueue_Worker_Secret_2026
+      - key: MONGODB_URI
+        sync: false # Optional: MongoDB Atlas connection string
+      - key: ADMIN_PASSWORD
+        generateValue: true
