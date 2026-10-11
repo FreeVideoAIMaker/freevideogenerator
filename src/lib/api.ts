@@ -4,7 +4,8 @@ import {
   AdminStats, 
   AdminUserView, 
   AuditLog, 
-  SiteConfig 
+  SiteConfig,
+  EngineTelemetry
 } from '../types';
 
 const getAuthToken = () => localStorage.getItem('fva_user_token') || '';
@@ -236,4 +237,41 @@ export async function updateAdminSettings(settings: any): Promise<{ success: boo
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Failed to update settings');
   return data;
+}
+
+
+
+// 13. Fetch All Customer Videos for Admin Console
+export async function fetchAdminVideos(): Promise<GeneratedVideo[]> {
+  const res = await fetch('/api/admin/videos', {
+    headers: { 'x-admin-token': getAdminToken() },
+  });
+  if (!res.ok) throw new Error('Unauthorized');
+  return res.json();
+}
+
+// 14. Delete Video via Admin Console
+export async function deleteAdminVideo(id: string): Promise<void> {
+  const res = await fetch(`/api/admin/videos/${id}`, {
+    method: 'DELETE',
+    headers: { 'x-admin-token': getAdminToken() },
+  });
+  if (!res.ok) throw new Error('Failed to delete video');
+}
+
+// 15. Purge Expired Videos (>24h) via Admin Console
+export async function purgeExpiredAdminVideos(): Promise<{ purgedCount: number }> {
+  const res = await fetch('/api/admin/videos/purge-expired', {
+    method: 'POST',
+    headers: { 'x-admin-token': getAdminToken() },
+  });
+  if (!res.ok) throw new Error('Failed to purge expired videos');
+  return res.json();
+}
+
+// 16. Real-time Worker Telemetry Polling Fallback
+export async function fetchWorkerTelemetry(): Promise<EngineTelemetry & { isOnline: boolean }> {
+  const res = await fetch('/api/worker/telemetry');
+  if (!res.ok) throw new Error('Failed to fetch worker telemetry');
+  return res.json();
 }

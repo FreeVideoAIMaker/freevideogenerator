@@ -122,6 +122,8 @@ interface StoredVideo {
   localFilePath?: string;
   storageType: 'render-storage';
   status: 'queued' | 'pending' | 'processing' | 'completed' | 'failed';
+  progress?: number;
+  queuePosition?: number;
   workerNode?: string;
   hasAudio?: boolean;
   hasMusic?: boolean;
@@ -236,6 +238,7 @@ function saveDatabaseToDisk() {
   try {
     const serialized = {
       users: Array.from(users.entries()),
+      userTokens: Array.from(userTokens.entries()),
       videos: Array.from(videos.entries()),
       auditLogs,
       visitorRecords,
@@ -258,12 +261,13 @@ function loadDatabaseFromDisk() {
     try {
       const data = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
       if (data.users) users = new Map(data.users);
+      if (data.userTokens) userTokens = new Map(data.userTokens);
       if (data.videos) videos = new Map(data.videos);
       if (data.auditLogs) auditLogs = data.auditLogs;
       if (data.visitorRecords) visitorRecords = data.visitorRecords;
       if (typeof data.botRequestsBlocked === 'number') botRequestsBlocked = data.botRequestsBlocked;
       if (data.siteConfig) siteConfig = { ...siteConfig, ...data.siteConfig };
-      console.log(`[Storage] Database loaded from disk (${users.size} users, ${videos.size} videos).`);
+      console.log(`[Storage] Database loaded from disk (${users.size} users, ${videos.size} videos, ${userTokens.size} active sessions).`);
     } catch {
       console.warn('[Storage] Creating fresh database state.');
     }
@@ -411,6 +415,69 @@ async function sendWelcomeEmail(userEmail: string, username: string) {
 }
 
 // -------------------------------------------------------------
+// VIDEO READY EMAIL DISPATCHER
+// -------------------------------------------------------------
+async function sendVideoReadyEmail(userEmail: string, username: string, video: StoredVideo) {
+  const senderAddress = siteConfig.smtp?.from || 'noreply@freevideoaimaker.com';
+  const cleanFromHeader = `"FreeVideoAIMaker" <${senderAddress}>`;
+
+  if (siteConfig.smtp?.host && siteConfig.smtp?.user && siteConfig.smtp?.pass) {
+    try {
+      const transporter = nodemailer.createTransport({
+        host: siteConfig.smtp.host,
+        port: siteConfig.smtp.port,
+        secure: siteConfig.smtp.port === 465,
+        auth: {
+          user: siteConfig.smtp.user,
+          pass: siteConfig.smtp.pass,
+        },
+      });
+
+      await transporter.sendMail({
+        from: cleanFromHeader,
+        to: userEmail,
+        subject: 'Your AI Video is Ready to Download - FreeVideoAIMaker',
+        html: `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 620px; margin: 0 auto; background: #030712; color: #f1f5f9; padding: 32px; border-radius: 14px; border: 1px solid #1e293b;">
+            <div style="border-bottom: 1px solid #1e293b; padding-bottom: 16px; margin-bottom: 20px;">
+              <h1 style="color: #22d3ee; margin: 0; font-size: 24px; font-weight: 800;">FreeVideoAIMaker</h1>
+              <p style="color: #94a3b8; font-size: 12px; margin: 4px 0 0 0;">Zero-Watermark AI Video & Audio Synthesis Engine</p>
+            </div>
+            
+            <h2 style="color: #ffffff; font-size: 18px; margin-top: 0;">Your Video is Ready, ${username}!</h2>
+            <p style="font-size: 14px; line-height: 1.6; color: #cbd5e1;">Your cinematic AI video has been rendered and multiplexed with sound effects. It is now ready to watch and download directly in your personal <strong>Library</strong>.</p>
+            
+            <div style="background: #0f172a; padding: 20px; border-radius: 10px; margin: 20px 0; border: 1px solid #334155;">
+              <h4 style="margin: 0 0 10px 0; color: #38bdf8; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Video Summary:</h4>
+              <p style="margin: 4px 0; font-size: 13px; color: #e2e8f0;"><strong>Prompt:</strong> ${video.prompt}</p>
+              ${video.sfxPrompt ? `<p style="margin: 4px 0; font-size: 13px; color: #cbd5e1;"><strong>SFX:</strong> ${video.sfxPrompt}</p>` : ''}
+              <p style="margin: 6px 0 0 0; font-size: 12px; color: #94a3b8;"><strong>Duration:</strong> ${video.duration}s &bull; <strong>Aspect Ratio:</strong> ${video.aspectRatio}</p>
+            </div>
+
+            <div style="text-align: center; margin: 26px 0;">
+              <a href="${video.videoUrl || '#'}" style="display: inline-block; background: #06b6d4; color: #020617; font-weight: 800; font-size: 14px; padding: 13px 30px; border-radius: 10px; text-decoration: none;">Download Your MP4 Video</a>
+            </div>
+
+            <div style="background: rgba(245, 158, 11, 0.08); padding: 14px; border-radius: 8px; border: 1px solid rgba(245, 158, 11, 0.2); margin-bottom: 20px;">
+              <p style="margin: 0; font-size: 12px; color: #fbbf24; line-height: 1.6;">
+                ⚠️ <strong>24-Hour Ephemeral Retention:</strong> Completed videos are stored for 24 hours to protect creator privacy and maintain storage speed. Please download your creations promptly.
+              </p>
+            </div>
+
+            <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #1e293b; text-align: center;">
+              <p style="margin: 0; font-size: 11px; color: #64748b;">FreeVideoAIMaker &bull; Automated Delivery Notification &bull; No Reply Needed</p>
+            </div>
+          </div>
+        `,
+      });
+      console.log(`[Email] Video completion email dispatched to ${userEmail} for order ${video.id}`);
+    } catch (err: any) {
+      console.warn(`[Email Notice] Completion email delivery skipped: ${err.message}`);
+    }
+  }
+}
+
+// -------------------------------------------------------------
 // SAFETY FILTER
 // -------------------------------------------------------------
 const FORBIDDEN_PATTERNS = [
@@ -452,11 +519,38 @@ function maskEmail(email: string): string {
 
 const hashPassword = (pwd: string) => crypto.createHash('sha256').update(pwd + 'SALT_RENDER_SECURE').digest('hex');
 
+const TOKEN_SIGNING_SECRET = process.env.TOKEN_SIGNING_SECRET || 'FVA_Persistent_Token_Secret_2026';
+
+function generateUserSessionToken(userId: string): string {
+  const salt = crypto.randomBytes(8).toString('hex');
+  const hmac = crypto.createHmac('sha256', TOKEN_SIGNING_SECRET).update(`${userId}:${salt}`).digest('hex').slice(0, 24);
+  const token = `tok_${userId}_${salt}_${hmac}`;
+  userTokens.set(token, userId);
+  return token;
+}
+
 function getUserFromToken(req: Request): StoredUser | null {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
   const token = authHeader.split(' ')[1];
-  const userId = userTokens.get(token);
+  if (!token) return null;
+
+  let userId = userTokens.get(token);
+
+  if (!userId && token.startsWith('tok_')) {
+    const parts = token.split('_');
+    if (parts.length >= 4) {
+      const extractedUserId = parts[1];
+      const salt = parts[2];
+      const hmac = parts[3];
+      const expectedHmac = crypto.createHmac('sha256', TOKEN_SIGNING_SECRET).update(`${extractedUserId}:${salt}`).digest('hex').slice(0, 24);
+      if (hmac === expectedHmac) {
+        userId = extractedUserId;
+        userTokens.set(token, userId);
+      }
+    }
+  }
+
   if (!userId) return null;
   return users.get(userId) || null;
 }
@@ -626,8 +720,7 @@ app.post('/api/auth/register', async (req: Request, res: Response) => {
   };
 
   users.set(userId, newUser);
-  const sessionToken = `tok_${crypto.randomBytes(24).toString('hex')}`;
-  userTokens.set(sessionToken, userId);
+  const sessionToken = generateUserSessionToken(userId);
 
   saveDatabaseToDisk();
 
@@ -687,8 +780,7 @@ app.post('/api/auth/login', (req: Request, res: Response) => {
     matchedUser.lastGenerationDate = todayStr;
   }
 
-  const sessionToken = `tok_${crypto.randomBytes(24).toString('hex')}`;
-  userTokens.set(sessionToken, matchedUser.id);
+  const sessionToken = generateUserSessionToken(matchedUser.id);
   saveDatabaseToDisk();
 
   const secondsUsed = matchedUser.secondsUsedToday || 0;
@@ -851,16 +943,27 @@ app.get('/api/videos/showcase', (_req: Request, res: Response) => {
   res.json(list);
 });
 
-// User's Personal Videos
+// User's Personal Videos (Library)
 app.get('/api/videos/my', (req: Request, res: Response) => {
   const user = getUserFromToken(req);
   if (!user) {
     return res.status(401).json({ error: 'Login required to view personal creations.' });
   }
 
+  const now = Date.now();
   const list = Array.from(videos.values())
     .filter((v) => v.userId === user.id)
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .map((v) => {
+      const expireTime = new Date(v.expiresAt).getTime();
+      const minutesRemaining = Math.max(0, Math.round((expireTime - now) / (60 * 1000)));
+      const queuePosition = v.status === 'queued' ? calculateQueuePosition(v.createdAt) : undefined;
+      return {
+        ...v,
+        minutesRemainingUntilPurge: minutesRemaining,
+        queuePosition,
+      };
+    });
 
   res.json(list);
 });
@@ -1196,12 +1299,43 @@ app.post('/api/worker/complete-task', (req: Request, res: Response) => {
   }
 
   video.status = 'completed';
+  video.progress = 100;
   video.hasAudio = hasAudio !== undefined ? Boolean(hasAudio) : true;
   video.workerNode = workerNode || 'Dedicated-Worker-Node';
 
   saveDatabaseToDisk();
 
-  console.log(`[Worker Pipeline] Order ${id} successfully marked COMPLETED by worker.`);
+  // Dispatch email notification and in-app alert to customer
+  if (video.userId) {
+    const creator = users.get(video.userId);
+    if (creator) {
+      creator.notifications = creator.notifications || [];
+      creator.notifications.unshift({
+        id: crypto.randomUUID(),
+        title: 'Your Video is Ready!',
+        message: `Your cinematic AI video "${video.title}" has finished rendering. It is now ready to stream and download in your Library!`,
+        type: 'system',
+        createdAt: new Date().toISOString(),
+        read: false,
+      });
+
+      if (creator.email) {
+        sendVideoReadyEmail(creator.email, creator.username, video).catch(() => {});
+      }
+      saveDatabaseToDisk();
+    }
+  }
+
+  // Update real-time telemetry
+  if (currentTelemetry.currentTaskId === id) {
+    currentTelemetry.currentTaskId = undefined;
+    currentTelemetry.currentTaskPrompt = undefined;
+    currentTelemetry.taskProgressPercent = 0;
+    currentTelemetry.status = 'idle';
+    broadcastTelemetry();
+  }
+
+  console.log(`[Worker Pipeline] Order ${id} successfully marked COMPLETED by worker. Customer notified.`);
 
   return res.json({
     success: true,
@@ -1227,9 +1361,132 @@ app.post('/api/worker/fail-task', (req: Request, res: Response) => {
   video.error = error || 'Generation engine error.';
   saveDatabaseToDisk();
 
+  if (currentTelemetry.currentTaskId === id) {
+    currentTelemetry.currentTaskId = undefined;
+    currentTelemetry.currentTaskPrompt = undefined;
+    currentTelemetry.taskProgressPercent = 0;
+    currentTelemetry.status = 'error';
+    currentTelemetry.errorMessage = video.error;
+    broadcastTelemetry();
+  }
+
   console.warn(`[Worker Pipeline] Order ${id} marked FAILED: ${video.error}`);
 
   return res.json({ success: true, id, status: 'failed' });
+});
+
+// -------------------------------------------------------------
+// REAL-TIME ENGINE TELEMETRY & HARDWARE MONITORING
+// -------------------------------------------------------------
+interface EngineTelemetry {
+  status: 'connected' | 'idle' | 'generating_video' | 'generating_sfx' | 'error' | 'offline';
+  lastSeen: number;
+  gpuTemperature: number;
+  powerWatts: number;
+  vramUsedMB: number;
+  vramTotalMB: number;
+  computeLoadPercent: number;
+  currentTaskId?: string;
+  currentTaskPrompt?: string;
+  taskProgressPercent: number;
+  errorMessage?: string;
+}
+
+let currentTelemetry: EngineTelemetry = {
+  status: 'offline',
+  lastSeen: 0,
+  gpuTemperature: 45,
+  powerWatts: 25,
+  vramUsedMB: 1200,
+  vramTotalMB: 4096,
+  computeLoadPercent: 0,
+  taskProgressPercent: 0,
+};
+
+let telemetrySseClients: Response[] = [];
+
+function broadcastTelemetry() {
+  const isOnline = Date.now() - currentTelemetry.lastSeen < 25000;
+  const payload = `data: ${JSON.stringify({ ...currentTelemetry, status: isOnline ? currentTelemetry.status : 'offline' })}\n\n`;
+  telemetrySseClients = telemetrySseClients.filter((client) => {
+    try {
+      client.write(payload);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+}
+
+// 1. Worker Telemetry Push (From Python Worker)
+app.post('/api/worker/telemetry', (req: Request, res: Response) => {
+  if (!isAuthorizedWorker(req)) {
+    return res.status(403).json({ error: 'Unauthorized worker node.' });
+  }
+
+  const {
+    status,
+    gpuTemperature,
+    powerWatts,
+    vramUsedMB,
+    vramTotalMB,
+    computeLoadPercent,
+    currentTaskId,
+    currentTaskPrompt,
+    taskProgressPercent,
+    errorMessage,
+  } = req.body;
+
+  currentTelemetry = {
+    status: status || 'connected',
+    lastSeen: Date.now(),
+    gpuTemperature: Number(gpuTemperature) || 54,
+    powerWatts: Number(powerWatts) || 45,
+    vramUsedMB: Number(vramUsedMB) || 2800,
+    vramTotalMB: Number(vramTotalMB) || 4096,
+    computeLoadPercent: Number(computeLoadPercent) || 75,
+    currentTaskId: currentTaskId || undefined,
+    currentTaskPrompt: currentTaskPrompt || undefined,
+    taskProgressPercent: Math.min(100, Math.max(0, Number(taskProgressPercent) || 0)),
+    errorMessage: errorMessage || undefined,
+  };
+
+  // Sync task progress to active video record
+  if (currentTaskId && videos.has(currentTaskId)) {
+    const v = videos.get(currentTaskId)!;
+    v.status = 'processing';
+    v.progress = currentTelemetry.taskProgressPercent;
+  }
+
+  broadcastTelemetry();
+  return res.json({ success: true, timestamp: Date.now() });
+});
+
+// 2. Telemetry Polling Fallback
+app.get('/api/worker/telemetry', (_req: Request, res: Response) => {
+  const isOnline = Date.now() - currentTelemetry.lastSeen < 25000;
+  res.json({
+    ...currentTelemetry,
+    status: isOnline ? currentTelemetry.status : 'offline',
+    isOnline,
+  });
+});
+
+// 3. Real-Time Telemetry Server-Sent Events (SSE) Stream
+app.get('/api/worker/telemetry/stream', (req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders?.();
+
+  const isOnline = Date.now() - currentTelemetry.lastSeen < 25000;
+  res.write(`data: ${JSON.stringify({ ...currentTelemetry, status: isOnline ? currentTelemetry.status : 'offline' })}\n\n`);
+
+  telemetrySseClients.push(res);
+
+  req.on('close', () => {
+    telemetrySseClients = telemetrySseClients.filter((c) => c !== res);
+  });
 });
 
 // Worker Health & Queue Metrics
@@ -1244,9 +1501,14 @@ app.get('/api/worker/status', (_req: Request, res: Response) => {
     else if (v.status === 'completed') completed++;
   }
 
+  const isOnline = Date.now() - currentTelemetry.lastSeen < 25000;
+
   res.json({
     activeWorkerCluster: 'Dedicated High-Performance Neural Cluster',
-    supportedModels: ['AnimateDiff-Lightning', 'DynamiCrafter', 'AudioCraft', 'MAGNET', 'MusicGen'],
+    engineOnline: isOnline,
+    engineStatus: isOnline ? currentTelemetry.status : 'offline',
+    telemetry: currentTelemetry,
+    supportedModels: ['AnimateDiff-Lightning', 'DynamiCrafter', 'AudioCraft', 'MAGNET'],
     queue: {
       queuedTasks: queued,
       processingTasks: processing,
@@ -1366,6 +1628,83 @@ app.get('/api/admin/audit-logs', (req: Request, res: Response) => {
     return res.status(403).json({ error: 'Unauthorized.' });
   }
   res.json(auditLogs);
+});
+
+// Admin Customer Videos Management & 24h Purge System
+app.get('/api/admin/videos', (req: Request, res: Response) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ error: 'Unauthorized.' });
+  }
+
+  const now = Date.now();
+  const list = Array.from(videos.values())
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .map((v) => {
+      const expireTime = new Date(v.expiresAt).getTime();
+      const minutesRemaining = Math.max(0, Math.round((expireTime - now) / (60 * 1000)));
+      return {
+        ...v,
+        minutesRemainingUntilPurge: minutesRemaining,
+        isExpired: now > expireTime,
+      };
+    });
+
+  res.json(list);
+});
+
+app.delete('/api/admin/videos/:id', (req: Request, res: Response) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ error: 'Unauthorized.' });
+  }
+
+  const { id } = req.params;
+  const video = videos.get(id);
+  if (!video) {
+    return res.status(404).json({ error: 'Video not found.' });
+  }
+
+  if (video.localFilePath && fs.existsSync(video.localFilePath)) {
+    try {
+      fs.unlinkSync(video.localFilePath);
+    } catch {
+      // ignore
+    }
+  }
+
+  videos.delete(id);
+  saveDatabaseToDisk();
+
+  res.json({ success: true, id });
+});
+
+app.post('/api/admin/videos/purge-expired', (req: Request, res: Response) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ error: 'Unauthorized.' });
+  }
+
+  const now = Date.now();
+  let purgedCount = 0;
+
+  for (const [id, video] of videos.entries()) {
+    const expireTime = new Date(video.expiresAt).getTime();
+    if (now > expireTime) {
+      if (video.localFilePath && fs.existsSync(video.localFilePath)) {
+        try {
+          fs.unlinkSync(video.localFilePath);
+        } catch {
+          // ignore
+        }
+      }
+      videos.delete(id);
+      purgedCount++;
+    }
+  }
+
+  if (purgedCount > 0) {
+    saveDatabaseToDisk();
+  }
+
+  res.json({ success: true, purgedCount });
 });
 
 app.get('/api/admin/settings', (req: Request, res: Response) => {

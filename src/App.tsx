@@ -12,6 +12,7 @@ import { AuthModal } from './components/AuthModal';
 import { AdminConsole } from './components/AdminConsole';
 import { NotificationsModal } from './components/NotificationsModal';
 import { AdBanner } from './components/AdBanner';
+import { Library } from './components/Library';
 import { GeneratedVideo } from './types';
 
 function MainApp() {
@@ -68,23 +69,44 @@ function MainApp() {
         {/* 1. Hero Section */}
         <Hero onStartCreating={() => handleNavigateSection('studio')} />
 
+        {/* Ad Space: Below Hero */}
+        <AdBanner type="in-feed" />
+
         {/* 2. Interactive Video Studio (Multi-Photo + Prompt + Controls) */}
         <VideoStudio
           initialPrompt={studioPrompt}
           onVideoCreated={(video) => setNewlyCreatedVideo(video)}
         />
 
-        {/* 3. Community Showcase Gallery (Starts clean from 0) */}
+        {/* Ad Space: Mid-Page Banner */}
+        <AdBanner type="leaderboard" />
+
+        {/* 3. Creator Library (Queued, Processing with live progress %, Ready with 24h countdown) */}
+        <Library
+          onStartCreating={() => handleNavigateSection('studio')}
+          newlyCreatedVideo={newlyCreatedVideo}
+        />
+
+        {/* Ad Space: Pre-Showcase Banner */}
+        <AdBanner type="showcase" />
+
+        {/* 4. Community Showcase Gallery (Starts clean from 0) */}
         <ShowcaseGallery
           onRemixPrompt={handleRemixPrompt}
           newlyCreatedVideo={newlyCreatedVideo}
         />
 
-        {/* 4. Neural Engine Features & Quality Architecture */}
+        {/* 5. Neural Engine Features & Quality Architecture */}
         <FeaturesSection />
 
-        {/* 5. Frequently Asked Questions */}
+        {/* Ad Space: Content Break Banner */}
+        <AdBanner type="in-feed" />
+
+        {/* 6. Frequently Asked Questions */}
         <FAQSection />
+
+        {/* Ad Space: Pre-Footer Placement */}
+        <AdBanner type="footer-banner" />
       </main>
 
       {/* Footer (ZERO admin links visible) */}

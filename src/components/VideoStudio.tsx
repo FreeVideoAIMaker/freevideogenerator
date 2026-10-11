@@ -101,8 +101,8 @@ export const VideoStudio: React.FC<VideoStudioProps> = ({ initialPrompt = '', on
   const [negativePrompt, setNegativePrompt] = useState('');
   const [showNegative, setShowNegative] = useState(false);
 
-  // Audio Toggle Switches
-  const [hasMusic, setHasMusic] = useState<boolean>(true);
+  // Audio Toggle Switches (Music temporarily disabled, SFX active)
+  const hasMusic = false;
   const [hasSFX, setHasSFX] = useState<boolean>(true);
 
   // Configuration
@@ -330,13 +330,13 @@ export const VideoStudio: React.FC<VideoStudioProps> = ({ initialPrompt = '', on
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 mb-3">
               <Cpu className="w-3.5 h-3.5" />
-              <span>Multi-Track Neural Engine · AnimateDiff + MAGNET + MusicGen</span>
+              <span>Multi-Track Neural Engine · Video & Kinetic Sound Effects</span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-950 dark:text-white">
-              Advanced AI Video & Audio Studio
+              Advanced AI Video Studio
             </h2>
             <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1 max-w-xl">
-              Queue reference photos, cinematic motion prompts, dynamic sound effects, and background melodies for complete production.
+              Queue reference photos, cinematic motion prompts, and synchronized sound effects for complete high-definition production.
             </p>
           </div>
 
@@ -548,29 +548,37 @@ export const VideoStudio: React.FC<VideoStudioProps> = ({ initialPrompt = '', on
               </div>
             </div>
 
-            {/* 3. AUDIO ENGINEERING & MULTI-TRACK TOGGLES (MAGNET & MUSICGEN) */}
+            {/* 3. AUDIO ENGINEERING & SOUND EFFECTS (SFX) */}
             <div className={`rounded-2xl border p-4 sm:p-5 shadow-lg ${
               isLight ? 'bg-white border-slate-200' : 'bg-slate-900/80 border-slate-800'
             }`}>
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <Sliders className="w-4 h-4 text-purple-400" />
+                  <Sliders className="w-4 h-4 text-cyan-400" />
                   <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
-                    Audio Engineering & Sound Tracks
+                    Sound Effects & Audio Tracks
                   </span>
                 </div>
-                <div className={`text-[11px] font-mono px-2 py-0.5 rounded-full border ${
-                  isAudioActive 
-                    ? 'bg-purple-950/40 text-purple-300 border-purple-800/40' 
+                <div className={`text-[11px] font-mono px-2.5 py-0.5 rounded-full border ${
+                  hasSFX 
+                    ? 'bg-cyan-950/40 text-cyan-300 border-cyan-800/40' 
                     : 'bg-slate-800 text-slate-400 border-slate-700'
                 }`}>
-                  {isAudioActive ? 'Multi-Track Audio Active' : 'Muted (No Audio)'}
+                  {hasSFX ? 'Kinetic SFX Active' : 'Muted'}
                 </div>
+              </div>
+
+              {/* Notice Banner: Music generation disabled */}
+              <div className="mb-4 p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-500 dark:text-amber-300 text-xs flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <p className="font-semibold leading-relaxed">
+                  Music generation is temporarily disabled and will be added soon completely free and unlimited.
+                </p>
               </div>
 
               {/* Toggle Switches */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-                {/* SFX Toggle */}
+                {/* SFX Toggle (Active) */}
                 <button
                   type="button"
                   onClick={() => setHasSFX(!hasSFX)}
@@ -589,7 +597,7 @@ export const VideoStudio: React.FC<VideoStudioProps> = ({ initialPrompt = '', on
                         Sound Effects (SFX)
                       </div>
                       <div className="text-[10px] text-slate-500 dark:text-slate-400">
-                        Kinetic audio for MAGNET
+                        Kinetic Foley audio for scene actions
                       </div>
                     </div>
                   </div>
@@ -602,45 +610,41 @@ export const VideoStudio: React.FC<VideoStudioProps> = ({ initialPrompt = '', on
                   </div>
                 </button>
 
-                {/* Music Toggle */}
-                <button
-                  type="button"
-                  onClick={() => setHasMusic(!hasMusic)}
-                  className={`p-3 rounded-xl border flex items-center justify-between transition-all cursor-pointer text-left ${
-                    hasMusic
-                      ? 'border-purple-500 bg-purple-500/10 text-purple-300 ring-1 ring-purple-500/30'
-                      : isLight
-                        ? 'border-slate-200 bg-slate-50 text-slate-500'
-                        : 'border-slate-800 bg-slate-950 text-slate-500'
+                {/* Music Toggle (Disabled with notice) */}
+                <div
+                  className={`p-3 rounded-xl border flex items-center justify-between opacity-60 cursor-not-allowed ${
+                    isLight
+                      ? 'border-slate-200 bg-slate-100/80 text-slate-400'
+                      : 'border-slate-800 bg-slate-950/60 text-slate-500'
                   }`}
+                  title="Music generation is temporarily disabled and will be added soon completely free and unlimited."
                 >
                   <div className="flex items-center gap-2.5">
-                    <Music className={`w-4 h-4 ${hasMusic ? 'text-purple-400' : 'text-slate-500'}`} />
+                    <Music className="w-4 h-4 text-slate-500" />
                     <div>
-                      <div className="text-xs font-bold text-slate-900 dark:text-white">
-                        Background Music
+                      <div className="text-xs font-bold text-slate-400 flex items-center gap-1.5">
+                        <span>Background Music</span>
+                        <span className="text-[9px] uppercase px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-400 font-mono">
+                          Coming Soon
+                        </span>
                       </div>
-                      <div className="text-[10px] text-slate-500 dark:text-slate-400">
-                        Melody synthesis for MusicGen
+                      <div className="text-[10px] text-slate-500">
+                        Temporarily disabled
                       </div>
                     </div>
                   </div>
-                  <div className={`w-9 h-5 rounded-full transition-colors relative flex items-center p-0.5 ${
-                    hasMusic ? 'bg-purple-500' : 'bg-slate-700'
-                  }`}>
-                    <div className={`w-4 h-4 rounded-full bg-white transition-transform ${
-                      hasMusic ? 'translate-x-4' : 'translate-x-0'
-                    }`} />
+                  <div className="w-9 h-5 rounded-full bg-slate-800 relative flex items-center p-0.5">
+                    <div className="w-4 h-4 rounded-full bg-slate-600 translate-x-0" />
                   </div>
-                </button>
+                </div>
               </div>
 
               {/* SFX Prompt Field (Visible only when SFX enabled) */}
               {hasSFX && (
-                <div className="space-y-1.5 mb-3.5 p-3 rounded-xl border border-cyan-500/20 bg-cyan-950/10">
+                <div className="space-y-1.5 mb-2 p-3 rounded-xl border border-cyan-500/20 bg-cyan-950/10">
                   <label className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                     <Radio className="w-3.5 h-3.5 text-cyan-400" />
-                    <span>Sound Effects (SFX) Prompt · MAGNET Model</span>
+                    <span>Sound Effects (SFX) Prompt · Kinetic Foley Model</span>
                   </label>
                   <input
                     type="text"
@@ -655,30 +659,6 @@ export const VideoStudio: React.FC<VideoStudioProps> = ({ initialPrompt = '', on
                   />
                   <p className="text-[10px] text-slate-500">
                     Natural kinetic Foley effects generated and layered directly onto scene actions.
-                  </p>
-                </div>
-              )}
-
-              {/* Music Prompt Field (Visible only when Music enabled) */}
-              {hasMusic && (
-                <div className="space-y-1.5 mb-2 p-3 rounded-xl border border-purple-500/20 bg-purple-950/10">
-                  <label className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                    <Music className="w-3.5 h-3.5 text-purple-400" />
-                    <span>Background Music Prompt · MusicGen Model</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={musicPrompt}
-                    onChange={(e) => setMusicPrompt(e.target.value)}
-                    placeholder="e.g. cyberpunk synthwave beat, emotional cinematic piano, fast techno rhythm..."
-                    className={`w-full rounded-lg p-2.5 text-xs border transition-all focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-                      isLight 
-                        ? 'bg-white border-slate-300 text-slate-900 placeholder-slate-400' 
-                        : 'bg-slate-950 border-slate-800 text-white placeholder-slate-500'
-                    }`}
-                  />
-                  <p className="text-[10px] text-slate-500">
-                    High-fidelity orchestral or electronic background tracks synced to your duration.
                   </p>
                 </div>
               )}
@@ -944,7 +924,7 @@ export const VideoStudio: React.FC<VideoStudioProps> = ({ initialPrompt = '', on
                     <span>Rendering on Dedicated Generation Engine...</span>
                   </h4>
                   <p className="text-xs text-cyan-300 font-medium mb-3">
-                    AnimateDiff-Lightning + MAGNET (SFX) + MusicGen Active
+                    AnimateDiff-Lightning + MAGNET (SFX) Active
                   </p>
                   <p className="text-[11px] text-slate-600 dark:text-slate-400 max-w-xs mx-auto mb-3">
                     Synthesizing neural video frames ({aspectRatio}) and rendering synchronized audio tracks...
@@ -1058,7 +1038,7 @@ export const VideoStudio: React.FC<VideoStudioProps> = ({ initialPrompt = '', on
                       Your Rendered Video Appears Here
                     </p>
                     <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-1 max-w-xs mx-auto">
-                      Fill in your prompt, configure audio tracks (SFX & Music), pick an aspect ratio (16:9, 9:16, 1:1), and queue your creation.
+                      Fill in your prompt, configure kinetic sound effects (SFX), pick an aspect ratio (16:9, 9:16, 1:1), and queue your creation.
                     </p>
                   </div>
                 )
@@ -1074,7 +1054,7 @@ export const VideoStudio: React.FC<VideoStudioProps> = ({ initialPrompt = '', on
                 <span>Multi-Track Neural Engine (Dedicated Host)</span>
               </div>
               <p className="leading-relaxed text-[11px]">
-                Web application and persistent task queue hosted on <strong>Render</strong>. Offline generation executed on dedicated high-performance engine with <strong>AnimateDiff-Lightning</strong>, <strong>MAGNET (SFX)</strong>, and <strong>MusicGen</strong>.
+                Web application and persistent task queue hosted on <strong>Render</strong>. Generation executed on dedicated high-performance engine with <strong>AnimateDiff-Lightning</strong> and <strong>MAGNET (SFX)</strong>.
               </p>
             </div>
           </div>

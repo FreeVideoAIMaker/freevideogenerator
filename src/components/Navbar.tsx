@@ -77,6 +77,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigateSection, onOpenNotific
             Studio
           </button>
           <button 
+            onClick={() => handleNavClick('library')}
+            className="hover:text-cyan-500 transition-colors cursor-pointer text-cyan-400 font-bold"
+          >
+            Library
+          </button>
+          <button 
             onClick={() => handleNavClick('showcase')}
             className="hover:text-cyan-500 transition-colors cursor-pointer"
           >
@@ -204,6 +210,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigateSection, onOpenNotific
             className="text-left py-2 font-semibold text-sm text-slate-800 dark:text-slate-200"
           >
             AI Video Studio
+          </button>
+          <button
+            onClick={() => handleNavClick('library')}
+            className="text-left py-2 font-semibold text-sm text-cyan-400 font-bold"
+          >
+            Library (Queued, Processing, Ready)
           </button>
           <button
             onClick={() => handleNavClick('showcase')}

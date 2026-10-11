@@ -49,6 +49,10 @@ export interface GeneratedVideo {
   watermarked: boolean; // always false
   status?: 'queued' | 'pending' | 'processing' | 'completed' | 'failed';
   queuePosition?: number;
+  progress?: number; // 0 - 100 percentage
+  progressStage?: string;
+  minutesRemainingUntilPurge?: number;
+  isExpired?: boolean;
   workerNode?: string;
   hasAudio?: boolean;
   hasMusic?: boolean;
@@ -62,7 +66,57 @@ export interface GeneratedVideo {
   };
   views?: number;
   likes?: number;
-  storageType?: 'render-storage' | 'tablet-local';
+  storageType?: 'render-storage' | 'server-storage';
+}
+
+export interface EngineTelemetry {
+  status: 'connected' | 'idle' | 'generating_video' | 'generating_sfx' | 'error' | 'offline';
+  lastSeen: number; // timestamp ms
+  gpuTemperature: number; // in °C
+  powerWatts: number; // in Watts
+  vramUsedMB: number; // in MB
+  vramTotalMB: number; // in MB
+  computeLoadPercent: number; // in %
+  currentTaskId?: string;
+  currentTaskPrompt?: string;
+  taskProgressPercent: number; // 0 - 100%
+  errorMessage?: string;
+}
+
+export interface AdminVideoView {
+  id: string;
+  userId?: string;
+  userName?: string;
+  userEmail?: string;
+  title: string;
+  prompt: string;
+  sfxPrompt?: string;
+  duration: number;
+  aspectRatio: AspectRatio;
+  status: 'queued' | 'pending' | 'processing' | 'completed' | 'failed';
+  progress?: number;
+  queuePosition?: number;
+  videoUrl: string;
+  thumbnailUrl: string;
+  createdAt: string;
+  expiresAt: string;
+  minutesRemainingUntilPurge: number;
+  isExpired?: boolean;
+  fileSizeBytes?: number;
+}
+
+export interface EngineTelemetry {
+  status: 'connected' | 'idle' | 'generating_video' | 'generating_sfx' | 'error' | 'offline';
+  lastSeen: number;
+  gpuTemperature: number;
+  powerWatts: number;
+  vramUsedMB: number;
+  vramTotalMB: number;
+  computeLoadPercent: number;
+  currentTaskId?: string;
+  currentTaskPrompt?: string;
+  taskProgressPercent: number;
+  errorMessage?: string;
 }
 
 export interface UserProfile {
@@ -131,7 +185,7 @@ export interface AdminStats {
     storagePath: string;
     totalFiles: number;
     retentionHours: number;
-    mode: 'tablet-host';
+    mode: 'server-storage';
   };
 }
 

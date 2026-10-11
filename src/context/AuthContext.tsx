@@ -26,7 +26,14 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<UserProfile | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(() => {
+    try {
+      const saved = localStorage.getItem('fva_user_profile');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup'>('signin');
@@ -35,14 +42,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const token = localStorage.getItem('fva_user_token');
     if (!token) {
       setUser(null);
+      localStorage.removeItem('fva_user_profile');
       setIsLoading(false);
       return;
     }
     try {
       const profile = await fetchCurrentUser();
       setUser(profile);
+      localStorage.setItem('fva_user_profile', JSON.stringify(profile));
     } catch {
       localStorage.removeItem('fva_user_token');
+      localStorage.removeItem('fva_user_profile');
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -65,6 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signIn = async (email: string, password: string) => {
     const { token, user: userProfile } = await loginUser(email, password);
     localStorage.setItem('fva_user_token', token);
+    localStorage.setItem('fva_user_profile', JSON.stringify(userProfile));
     setUser(userProfile);
     closeAuthModal();
   };
@@ -72,12 +83,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUp = async (username: string, email: string, password: string) => {
     const { token, user: userProfile } = await registerUser(username, email, password);
     localStorage.setItem('fva_user_token', token);
+    localStorage.setItem('fva_user_profile', JSON.stringify(userProfile));
     setUser(userProfile);
     closeAuthModal();
   };
 
   const signOut = () => {
     localStorage.removeItem('fva_user_token');
+    localStorage.removeItem('fva_user_profile');
     setUser(null);
   };
 
